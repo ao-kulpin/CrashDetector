@@ -1,0 +1,172 @@
+<rail_net StatNum="11" EngineNum="10">
+	<branch From="0" To="10" Length="1"/>
+	<branch From="10" To="0" Length="1"/>
+
+	<branch From="1" To="10" Length="2"/>
+	<branch From="10" To="1" Length="1"/>
+
+	<branch From="2" To="10" Length="3"/>
+	<branch From="10" To="2" Length="1"/>
+
+	<branch From="3" To="10" Length="4"/>
+	<branch From="10" To="3" Length="1"/>
+
+	<branch From="4" To="10" Length="5"/>
+	<branch From="10" To="4" Length="1"/>
+
+	<branch From="5" To="10" Length="6"/>
+	<branch From="10" To="5" Length="1"/>
+
+	<branch From="6" To="10" Length="7"/>
+	<branch From="10" To="6" Length="1"/>
+
+	<branch From="7" To="10" Length="8"/>
+	<branch From="10" To="7" Length="1"/>
+
+	<branch From="8" To="10" Length="9"/>
+	<branch From="10" To="8" Length="1"/>
+
+	<branch From="9" To="10" Length="10"/>
+	<branch From="10" To="9" Length="1"/>
+
+	<route Engine ="0">
+		<track Stat="0"/>
+		<track Stat="10"/>
+		<track Stat="0"/>
+		<track Stat="10"/>
+		<track Stat="0"/>
+		<track Stat="10"/>
+		<track Stat="0"/>
+		<track Stat="10"/>
+		<track Stat="0"/>
+		<track Stat="10"/>
+		<track Stat="0"/>
+		<track Stat="10"/>
+	</route>
+	<route Engine ="1">
+		<track Stat="1"/>
+		<track Stat="10"/>
+		<track Stat="1"/>
+		<track Stat="10"/>
+		<track Stat="1"/>
+		<track Stat="10"/>
+		<track Stat="1"/>
+		<track Stat="10"/>
+		<track Stat="1"/>
+		<track Stat="10"/>
+		<track Stat="1"/>
+		<track Stat="10"/>
+	</route>
+	<route Engine ="2">
+		<track Stat="2"/>
+		<track Stat="10"/>
+		<track Stat="2"/>
+		<track Stat="10"/>
+		<track Stat="2"/>
+		<track Stat="10"/>
+		<track Stat="2"/>
+		<track Stat="10"/>
+		<track Stat="2"/>
+		<track Stat="10"/>
+		<track Stat="2"/>
+		<track Stat="10"/>
+	</route>
+	<route Engine ="3">
+		<track Stat="3"/>
+		<track Stat="10"/>
+		<track Stat="3"/>
+		<track Stat="10"/>
+		<track Stat="3"/>
+		<track Stat="10"/>
+		<track Stat="3"/>
+		<track Stat="10"/>
+		<track Stat="3"/>
+		<track Stat="10"/>
+		<track Stat="3"/>
+		<track Stat="10"/>
+	</route>
+	<route Engine ="4">
+		<track Stat="4"/>
+		<track Stat="10"/>
+		<track Stat="4"/>
+		<track Stat="10"/>
+		<track Stat="4"/>
+		<track Stat="10"/>
+		<track Stat="4"/>
+		<track Stat="10"/>
+		<track Stat="4"/>
+		<track Stat="10"/>
+		<track Stat="4"/>
+		<track Stat="10"/>
+	</route>
+	<route Engine ="5">
+		<track Stat="5"/>
+		<track Stat="10"/>
+		<track Stat="5"/>
+		<track Stat="10"/>
+		<track Stat="5"/>
+		<track Stat="10"/>
+		<track Stat="5"/>
+		<track Stat="10"/>
+		<track Stat="5"/>
+		<track Stat="10"/>
+		<track Stat="5"/>
+		<track Stat="10"/>
+	</route>
+	<route Engine ="6">
+		<track Stat="6"/>
+		<track Stat="10"/>
+		<track Stat="6"/>
+		<track Stat="10"/>
+		<track Stat="6"/>
+		<track Stat="10"/>
+		<track Stat="6"/>
+		<track Stat="10"/>
+		<track Stat="6"/>
+		<track Stat="10"/>
+		<track Stat="6"/>
+		<track Stat="10"/>
+	</route>
+	<route Engine ="7">
+		<track Stat="7"/>
+		<track Stat="10"/>
+		<track Stat="7"/>
+		<track Stat="10"/>
+		<track Stat="7"/>
+		<track Stat="10"/>
+		<track Stat="7"/>
+		<track Stat="10"/>
+		<track Stat="7"/>
+		<track Stat="10"/>
+		<track Stat="7"/>
+		<track Stat="10"/>
+	</route>
+	<route Engine ="8">
+		<track Stat="8"/>
+		<track Stat="10"/>
+		<track Stat="8"/>
+		<track Stat="10"/>
+		<track Stat="8"/>
+		<track Stat="10"/>
+		<track Stat="8"/>
+		<track Stat="10"/>
+		<track Stat="8"/>
+		<track Stat="10"/>
+		<track Stat="8"/>
+		<track Stat="10"/>
+	</route>
+	<route Engine ="9">
+		<track Stat="9"/>
+		<track Stat="10"/>
+		<track Stat="9"/>
+		<track Stat="10"/>
+		<track Stat="9"/>
+		<track Stat="10"/>
+		<track Stat="9"/>
+		<track Stat="10"/>
+		<track Stat="9"/>
+		<track Stat="10"/>
+		<track Stat="9"/>
+		<track Stat="10"/>
+	</route>
+</rail_net>
