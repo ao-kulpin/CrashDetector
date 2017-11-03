@@ -1,12 +1,14 @@
+import java.util.NoSuchElementException
+
 import scala.collection.mutable.ArrayBuffer
 import scala.xml._
 
 // class for error objects
-case class config_error(text: String) extends Exception(text)
+case class configException(text: String) extends Exception(text)
 
 object static_error {
   def report(msg: String) = {
-    throw new config_error("Error: " + msg)
+    throw new configException("Error: " + msg)
   }
 }
 
@@ -29,9 +31,9 @@ class RailNet (val StatNum: Int, val EngineNum: Int ) {
             // load from <branch> nodes
             if (child.label == "branch") {
                 // a <branch> node like <branch From="0" To="2" Length="1"/>
-                val From = child.attribute("From").asInstanceOf[Some[Text]].get.data.toInt
-                val To = child.attribute("To").asInstanceOf[Some[Text]].get.data.toInt
-                val Length = child.attribute("Length").asInstanceOf[Some[Text]].get.data.toInt
+                val From = child.attribute("From").get(0).text.toInt
+                val To = child.attribute("To").get(0).text.toInt
+                val Length = child.attribute("Length").get(0).text.toInt
 
                 if (From < 0 || From >= StatNum || To < 0 || To >= StatNum || Length <= 0)
                     // a invalid branch attribute
@@ -77,7 +79,7 @@ class RailNet (val StatNum: Int, val EngineNum: Int ) {
         // load from <rote> nodes
         if (child.label == "route") {
           // a <route> node like 	<route Engine ="0">
-          val Engine = child.attribute("Engine").asInstanceOf[Some[Text]].get.data.toInt
+          val Engine = child.attribute("Engine").get(0).text.toInt
           if ( Engine < 0 || Engine >= EngineNum )
               // invalid Engine attribute
               static_error.report("Incorrect XML node: " + child)
@@ -89,7 +91,7 @@ class RailNet (val StatNum: Int, val EngineNum: Int ) {
               // load from <track> nodes
               if (tr_node.label == "track") {
                 // a <track> node like <track Stat="2"/>
-                val Stat = tr_node.attribute("Stat").asInstanceOf[Some[Text]].get.data.toInt
+                val Stat = tr_node.attribute("Stat").get(0).text.toInt
                 if ( !engine_route.isEmpty && !branches(engine_route.last).contains(Stat) )
                     // the proper branch does not exist
                     static_error.report("Branch " + engine_route.last + "->" + Stat + " doesn't exist")
@@ -187,9 +189,9 @@ object CrashDetector {
           static_error.report("The root node of configuration must be <rail_net ...>")
 
       // Number of stations
-      val StatNum = xml.attribute("StatNum").asInstanceOf[Some[Text]].get.data.toInt
+      val StatNum = xml.attribute("StatNum").get(0).text.toInt
       // Number of engines
-      val EngineNum = xml.attribute("EngineNum").asInstanceOf[Some[Text]].get.data.toInt
+      val EngineNum = xml.attribute("EngineNum").get(0).text.toInt
 
       // network object
       val rn = new RailNet(StatNum, EngineNum)
@@ -217,7 +219,8 @@ object CrashDetector {
       }
     }
     catch {
-      case config_error(text) => println(text)
+      case configException(text) => println(text)
+      case nse:NoSuchElementException=> println("Error: A XML node doesn't have a required attribute")
     }
   }
 }
