@@ -22,8 +22,16 @@ class RailNet (val StatNum: Int, val EngineNum: Int ) {
     // in other words branches(from)(to) is the length of from->to branch
     val  branches = new Array[scala.collection.mutable.Map[Int, Int]](StatNum)
 
+    // initialization with empty tables
+    for( ib <- 0 to branches.length - 1)
+      branches(ib) = new scala.collection.mutable.HashMap[Int, Int]()
+
     // routes(ei) represents the route (array of stations) of engine ei
     val  routes = new Array[ArrayBuffer[Int]](EngineNum)
+
+    // initialization with empty routes
+    for ( ir <- 0 to routes.length - 1 )
+        routes(ir) = new ArrayBuffer[Int]()
 
     // load this object from a xml object
     def loadFromXML(xml: scala.xml.Elem) : Unit = {
@@ -39,22 +47,17 @@ class RailNet (val StatNum: Int, val EngineNum: Int ) {
                     // a invalid branch attribute
                      static_error.report("Incorrect XML node: " + child)
                 var out_from = branches(From) // table of branches outgoing from the From
-                if (out_from == null)
-                    out_from = new scala.collection.mutable.HashMap[Int, Int]()
                 if (out_from.getOrElse(To, Length) != Length)
                     // an ambiguously duplicated branch
                     static_error.report("The Length of branch " + From + "->" + To + " is ambiguously defined: " +
                                       out_from(To) + " vs " + Length)
                 // add the new branch to the table
                 out_from += (To->Length)
-
-                // save the possible updated table in the branches
-                branches(From) = out_from
             }
         }
         // check if every station has an outgoing branch
         for (sn <- 0 to branches.length - 1 ) {
-            if ( branches(sn) == null )
+            if ( branches(sn).isEmpty )
                 static_error.report("Station " + sn + " has no outgoing branches")
         }
 
@@ -83,10 +86,9 @@ class RailNet (val StatNum: Int, val EngineNum: Int ) {
           if ( Engine < 0 || Engine >= EngineNum )
               // invalid Engine attribute
               static_error.report("Incorrect XML node: " + child)
-          val engine_route = new ArrayBuffer[Int]() // route of the Engine
-          if ( routes(Engine) != null )
+          val engine_route = routes(Engine) // route of the Engine
+          if ( !engine_route.isEmpty )
               static_error.report("Duplicate route definition for Engine " + Engine)
-          routes(Engine) = engine_route
           for(tr_node<-child.child) {
               // load from <track> nodes
               if (tr_node.label == "track") {
@@ -99,12 +101,11 @@ class RailNet (val StatNum: Int, val EngineNum: Int ) {
                 engine_route += Stat
               }
           }
-          routes(Engine) = engine_route
         }
       }
       // check if a route for every engine is defined
       for(ei<- 0 to routes.length - 1)
-        if ( routes(ei) == null )
+        if ( routes(ei).isEmpty )
           static_error.report("Route for engine " + ei + " is not defined")
     }
 
