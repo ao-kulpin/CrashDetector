@@ -21,17 +21,13 @@ class RailNet (val StatNum: Int, val EngineNum: Int ) {
     // branches(si) represents the table of outgoing branches from station si
     // in other words branches(from)(to) is the length of from->to branch
     val  branches = new Array[scala.collection.mutable.Map[Int, Int]](StatNum)
-
-    // initialization with empty tables
-    for( ib <- 0 to branches.length - 1)
-      branches(ib) = new scala.collection.mutable.HashMap[Int, Int]()
+                            // initialization with empty tables
+                            .map((_)=>new scala.collection.mutable.HashMap[Int, Int]())
 
     // routes(ei) represents the route (array of stations) of engine ei
     val  routes = new Array[ArrayBuffer[Int]](EngineNum)
-
-    // initialization with empty routes
-    for ( ir <- 0 to routes.length - 1 )
-        routes(ir) = new ArrayBuffer[Int]()
+                          // initialization with empty routes
+                          .map((_)=>new ArrayBuffer[Int]())
 
     // load this object from a xml object
     def loadFromXML(xml: scala.xml.Elem) : Unit = {
