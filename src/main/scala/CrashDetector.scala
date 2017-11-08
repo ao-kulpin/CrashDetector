@@ -30,7 +30,7 @@ class RailNet (val StatNum: Int, val EngineNum: Int ) {
                           .map((_)=>new ArrayBuffer[Int]())
 
     // load this object from a xml object
-    def loadFromXML(xml: scala.xml.Elem) : Unit = {
+    def loadFromXML(xml: Elem) : Unit = {
         for(child<-xml.child) {
             // load from <branch> nodes
             if (child.label == "branch") {
@@ -180,7 +180,7 @@ object CrashDetector {
   def loadNet(path: String) : RailNet = {
 
       // root xml node like <rail_net StatNum="3" EngineNum="2">
-      val xml = scala.xml.XML.loadFile(path)
+      val xml = XML.loadFile(path)
 
       if ( xml.label != "rail_net" )
           static_error.report("The root node of configuration must be <rail_net ...>")
