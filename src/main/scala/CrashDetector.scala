@@ -1,223 +1,306 @@
-import java.util.NoSuchElementException
-
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.immutable._
 import scala.xml._
+
+object RailNet {
+    // the object encapsulates the railway network definition
+
+    def isLoaded = !branchTab.isEmpty   // is the object loaded?
+
+    def branchLength(st1: Int, st2: Int): Int = {
+        // length of branch st1 <-> st2 (if any)
+        val v = branchTab.get(NormBranch(st1 min st2, st1 max st2))
+        if (v.isEmpty)
+            -1            // there is no branch st1 <-> st2
+        else
+            v.get         // the length of branch st1 <-> st2
+    }
+
+    def getStatNumber = statNumber  // number of stations
+
+    def loadFromXml(root: xml.Elem):Unit = {
+      // load the object from XML element tree
+      assert(!isLoaded)
+
+      statNumber = XmlConfig.getIntAttrib(root, "StatNumber", _ > 1)
+
+      // load <branch> nodes
+      val branchList:List[(NormBranch, Int)]  = (for (
+            be <- root.child
+            if be.label == "branch"
+          ) yield {
+              val from_att = XmlConfig.getIntAttrib(be, "From",
+                                (f) => f >= 0 && f < statNumber)
+              val to_att = XmlConfig.getIntAttrib(be, "To",
+                                (t) => t >= 0 && t < statNumber && t != from_att)
+              val length_att = XmlConfig.getIntAttrib(be, "Length", (l) => l > 0)
+
+            (NormBranch(from_att min to_att, from_att max to_att), length_att)
+          }).toList
+
+          checkErrors(branchList);      // can be ignored for correct understanding
+
+          branchTab = branchList.toMap;
+
+          assert(isLoaded)
+      }
+
+    private var statNumber = -1 // number of stations
+    private case class NormBranch (st1: Int, st2: Int) {
+      assert(st1 < st2)  // normalized branch st1 <-> st2
+    }
+
+    // Table of branches: <NormBranch> => <length>
+    private var branchTab: Map[NormBranch, Int] = HashMap[NormBranch, Int]()
+
+    private def checkErrors(brl: List[(NormBranch, Int)]): Unit = {
+      // detect errors in definitions of branches
+
+      if (brl.isEmpty)
+        error.report("The configuration doesn't have any <branch> nodes")
+
+      // search for ambiguously defined branches
+      for ((b1, l1) <- brl; (b2, l2) <- brl)
+        if (b1 == b2 && l1 != l2)
+          error.report("The Length of branch " + b1.st1 + "<->" + b1.st2 +
+            " is ambiguously defined: " + l1 + "/" + l2)
+    }
+}
+
+object Routes {
+    // the object encapsulates definitions of engine's routes
+
+    def getEngineNumber = engineNumber  // Number of engines
+
+    def getEngineRoute(eng: Int): List[Int] = {
+        // the route (list of stations) of the engine eng
+        val er = routeTab.get(eng)
+        if (er.isEmpty) Nil else er.get.stl
+      }
+
+    def isLoaded = !routeTab.isEmpty    // Is the object loaded?
+    def loadFromXml(root: xml.Elem):Unit = {
+        // load the object from XML element tree
+        assert(RailNet.isLoaded) // RailNet must be loaded first
+        assert(!isLoaded)
+
+        engineNumber = XmlConfig.getIntAttrib(root, "EngineNumber", _ > 0)
+
+        // load <route> nodes
+        val routeList: List[EngRoute]  = (for (
+          re <- root.child
+          if re.label == "route"
+        ) yield {
+            val engine_att = XmlConfig.getIntAttrib(re, "Engine",
+                                      (e) => e >= 0 && e < getEngineNumber)
+            // load <track> nones for the given engine
+            val statList :List[Int] = (for (
+                te <- re.child
+                if te.label == "track"
+            ) yield {
+              val stat_att = XmlConfig.getIntAttrib(te, "Stat",
+                                  (s) => s >= 0 && s < RailNet.getStatNumber)
+              stat_att
+            }).toList
+
+            EngRoute(engine_att, statList)
+        }).toList
+
+        checkErrors(routeList) // can be ignored for correct understanding
+
+        // produce the map of routs
+        routeTab = routeList.map((r)=>(r.eng, r)).toMap
+
+        assert(isLoaded)
+      }
+
+    private case class EngRoute ( // the route (list of stations) of an engine
+                       eng: Int,          // engine
+                       stl: List[Int]     // list of stations
+                              ) {}
+
+    private var engineNumber = -1    // Number of engines
+
+    // Table of routes: <engine> -> <list of stations>
+    private var routeTab :Map[Int, EngRoute] = HashMap[Int, EngRoute]()
+
+    private def checkErrors(erl: List[EngRoute]): Unit = {
+        // detect errors in definitions of routes
+
+        def detectDuplicate(erl:List[EngRoute]) : Unit = {
+            if (!erl.isEmpty) {
+                if (erl.tail.exists(_.eng == erl.head.eng))
+                    error.report(error.report("Duplicate route definition for Engine " + erl.head.eng))
+                detectDuplicate(erl.tail)
+            }
+        }
+        def checkBranchExist(stl:List[Int]) : Unit = {
+            for((st1, st2) <- stl zip stl.tail)
+                if (RailNet.branchLength(st1, st2) <= 0)
+                    error.report("Branch " + st1 + "->" + st2 + " doesn't exist")
+        }
+
+        // check if routes are not duplicated
+        detectDuplicate(erl)
+
+        // check if a route for every engine is defined
+        for (ei<-List.range(0, getEngineNumber))
+            if (!erl.exists(_.eng == ei))
+                error.report(error.report("Route for engine " + ei + " is not defined"))
+
+        // check if every branch of an engine's route exists
+        for (er<-erl) checkBranchExist(er.stl)
+    }
+  }
+
+object XmlConfig {
+    // the object encapsulates XML representation of configuration
+
+    def isLoaded = !rootElem.isEmpty  // is the object loaded
+    def getRoot = {
+        assert(isLoaded)
+        rootElem.get
+    }
+
+    def loadFromFile(path: String): Unit = {
+        // load XML definition from file
+
+        rootElem = Some(XML.loadFile(path));
+
+        // check the root element
+        if ( isLoaded && rootElem.get.label != "rail_net" )
+            error.report("The root node of configuration must be <rail_net ...>")
+    }
+
+    def getIntAttrib(elm: xml.Node, attrName: String,
+                     isValid:Int=>Boolean = _=>true // validator of the expected value
+                  ) : Int = {
+        // extract XML attribute and convert its value to Int type
+        val ov = elm.attribute(attrName)
+        if (ov.isEmpty )
+            error.report("A xml node doesn't have attribute " + attrName)
+        val iv = ov.get.text.toInt
+        if( !isValid(iv) )
+            error.report("An invalid value of xml attribute " + attrName + "=" + iv)
+        iv
+    }
+    private var rootElem: Option[xml.Elem] = None
+}
+
+object CrashDetector {
+    // CrashDetector drives other objects and provides the primary functionality
+    def main(args:Array[String]) : Unit = {
+    try {
+        println("loading network definition " + args(0) + " ...")
+
+        XmlConfig.loadFromFile(args(0))
+        assert(XmlConfig.isLoaded)
+
+        RailNet.loadFromXml(XmlConfig.getRoot)
+        assert(RailNet.isLoaded)
+
+        Routes.loadFromXml(XmlConfig.getRoot)
+        assert(Routes.isLoaded)
+
+        println("OK")
+        println("Searching for crashes...")
+
+        val crashes = findCrash
+
+        // sorting detected crashes by time
+        val sort_crashes = crashes.sortWith((x, y) => x.time < y.time)
+
+        println(sort_crashes.length + " crashes detected")
+
+        for ((cr, ci) <-sort_crashes.zipWithIndex)
+            println("Crash " + (ci + 1) + ": stations: " + cr.st1 + "<->" + cr.st2 + " engines: " +
+            cr.en1 + ", " + cr.en2 + " time: " + cr.time)
+    }
+    catch {
+      case configException(text) => println(text)
+    }
+    }
+
+    private case class Crash (             // a detected crash
+        st1: Int, st2:Int,          // happens between these stations
+        en1: Int, en2:Int,          // engines take part
+        time : Double               // at that time
+                              ) {
+        def isSame(cr: Crash) =   time == cr.time &&
+            // detecting identical crashes
+                      (st1 min st2) == (cr.st1 min cr.st2) &&
+                      (st1 max st2) == (cr.st1 max cr.st2) &&
+                      (en1 min en2) == (cr.en1 min cr.en2) &&
+                      (en1 max en2) == (cr.en1 max cr.en2)
+    }
+    private case class BranchPass(    // passage between stations
+        eng: Int,                     // this engine
+        st1:Int, st2:Int,             // passes from st1 to st2
+        t1:Int,                       // time of start at st1
+        t2:Int                        // time of finish at st2
+                                 ) {
+        def isCrashed(bp: BranchPass) = eng != bp.eng && st1 == bp.st2 &&
+            // detect crashing events
+                      st2 == bp.st1 && t1 <= bp.t2 && t2 >= bp.t1
+
+        def crashTime(bp: BranchPass) : Double = {
+             // time of the crash
+            assert(isCrashed(bp))
+            (t1 + bp.t2) / 2.0
+        }
+    }
+
+    private def collectPass: List[BranchPass] = {
+        // produce List[BranchPass] for all engines
+        def collectEnginePass(eng: Int) : List[BranchPass] = {
+            // produce List[BranchPass] for one engine eng
+
+            // stations that the engine passes
+            val stats = Routes.getEngineRoute(eng)
+
+            // making List[BranchPass]
+            val (st, time, bpl) =
+                stats.tail.foldLeft((stats.head, 0, List[BranchPass]()))((t3, st2)=>{
+                                      val (st1, t1, bpl) = t3 // unclosing tuple t3
+
+                                      // time of passing branch st1->st2
+                                      val t2 = t1 + RailNet.branchLength(st1, st2)
+                                      (st2, t2,
+                                        BranchPass(eng, st1, st2, t1, t2) :: bpl)
+                })
+            bpl // resulting list
+        }
+
+        // concatenate lists of all engines
+        List.range(0, Routes.getEngineNumber).flatMap((ei)=>collectEnginePass(ei))
+    }
+
+    private def findCrash:List[Crash] = {
+        // search for all crashes
+
+        def removeDuplicates(crl: List[Crash]): List[Crash] = {
+            if (crl.isEmpty) crl else crl.head ::
+                    removeDuplicates(crl.tail.filter(!crl.head.isSame(_)))
+        }
+        val bpl = collectPass // all BranchPasses
+
+        // search for crashes
+        val crashList = for (
+          bp1 <- bpl;
+          bp2 <- bpl;
+          if bp1.eng != bp2.eng && (bp1 isCrashed bp2)
+      ) yield (Crash(bp1.st1, bp1.st2, bp1.eng, bp2.eng, bp1.crashTime(bp2)))
+
+      removeDuplicates(crashList)   // cleaning duplicated objects
+  }
+}
 
 // class for error objects
 case class configException(text: String) extends Exception(text)
 
-object static_error {
-  def report(msg: String) = {
-    throw new configException("Error: " + msg)
-  }
-}
-
-// class for crash objects
-class Crash(val station: Int, val time: Int, val engines: ArrayBuffer[Int])
-
-// railway network
-class RailNet (val StatNum: Int, val EngineNum: Int ) {
-
-    // branches(si) represents the table of outgoing branches from station si
-    // in other words branches(from)(to) is the length of from->to branch
-    val  branches = new Array[scala.collection.mutable.Map[Int, Int]](StatNum)
-                            // initialization with empty tables
-                            .map((_)=>new scala.collection.mutable.HashMap[Int, Int]())
-
-    // routes(ei) represents the route (array of stations) of engine ei
-    val  routes = new Array[ArrayBuffer[Int]](EngineNum)
-                          // initialization with empty routes
-                          .map((_)=>new ArrayBuffer[Int]())
-
-    // load this object from a xml object
-    def loadFromXML(xml: Elem) : Unit = {
-        for(child<-xml.child) {
-            // load from <branch> nodes
-            if (child.label == "branch") {
-                // a <branch> node like <branch From="0" To="2" Length="1"/>
-                val From = child.attribute("From").get(0).text.toInt
-                val To = child.attribute("To").get(0).text.toInt
-                val Length = child.attribute("Length").get(0).text.toInt
-
-                if (From < 0 || From >= StatNum || To < 0 || To >= StatNum || Length <= 0)
-                    // a invalid branch attribute
-                     static_error.report("Incorrect XML node: " + child)
-                var out_from = branches(From) // table of branches outgoing from the From
-                if (out_from.getOrElse(To, Length) != Length)
-                    // an ambiguously duplicated branch
-                    static_error.report("The Length of branch " + From + "->" + To + " is ambiguously defined: " +
-                                      out_from(To) + " vs " + Length)
-                // add the new branch to the table
-                out_from += (To->Length)
-            }
-        }
-        // check if every station has an outgoing branch
-        for (sn <- 0 to branches.length - 1 ) {
-            if ( branches(sn).isEmpty )
-                static_error.report("Station " + sn + " has no outgoing branches")
-        }
-
-        // check if every station has an ingoing branch
-
-        val ingoing = new Array[Boolean](StatNum)
-        for(iin <- 0 to ingoing.length - 1) ingoing(iin) = false
-
-       branches.foreach((m) => {
-              m.keys.foreach((si)=> {
-                  // ingoing branch for station si is found
-                  ingoing(si) = true
-              })
-         })
-
-      for (sn <- 0 to ingoing.length - 1 ) {
-        if (!ingoing(sn))
-          static_error.report("Station " + sn + " has no ingoing branches")
-      }
-
-      for(child<-xml.child) {
-        // load from <rote> nodes
-        if (child.label == "route") {
-          // a <route> node like 	<route Engine ="0">
-          val Engine = child.attribute("Engine").get(0).text.toInt
-          if ( Engine < 0 || Engine >= EngineNum )
-              // invalid Engine attribute
-              static_error.report("Incorrect XML node: " + child)
-          val engine_route = routes(Engine) // route of the Engine
-          if ( !engine_route.isEmpty )
-              static_error.report("Duplicate route definition for Engine " + Engine)
-          for(tr_node<-child.child) {
-              // load from <track> nodes
-              if (tr_node.label == "track") {
-                // a <track> node like <track Stat="2"/>
-                val Stat = tr_node.attribute("Stat").get(0).text.toInt
-                if ( !engine_route.isEmpty && !branches(engine_route.last).contains(Stat) )
-                    // the proper branch does not exist
-                    static_error.report("Branch " + engine_route.last + "->" + Stat + " doesn't exist")
-                // add the Stat to the route
-                engine_route += Stat
-              }
-          }
-        }
-      }
-      // check if a route for every engine is defined
-      for(ei<- 0 to routes.length - 1)
-        if ( routes(ei).isEmpty )
-          static_error.report("Route for engine " + ei + " is not defined")
-    }
-
-    // find all crashes of this network
-    def findCrash : ArrayBuffer[Crash] = {
-
-        // the class keeps arrival the engine to the station at time
-        class Arrival (val time:Int, val station:Int, val engine: Int)
-
-        // array of all arrivals
-        var arrivals = new ArrayBuffer[Arrival]()
-
-        // gather arrivals for all engines
-        for(ei<-0 to routes.length - 1) {
-            val en_route = routes(ei) // route of ei engine
-
-            var arr_time = 0;   // time of arrival to the current station
-            var prev_si = -1    // previous station with a fake initializer
-            for (si<-en_route) {
-                if (prev_si >= 0)
-                    // the branch from prev_si to the current (si) one
-                    arr_time += branches(prev_si)(si)
-                arrivals += new Arrival(arr_time, si, ei)
-                prev_si = si
-            }
-        }
-        // sorting by (time, station, engine)
-        // as a result, collided arrivals become neighbors in the sorted array
-        val sorted_arrivals = arrivals.sortWith((x:Arrival, y:Arrival)=>
-                    x.time < y.time
-                      || x.time == y.time
-                         && (x.station < y.station
-                              || x.station == y.station && x.engine < y.engine))
-
-        arrivals = sorted_arrivals // throw away the original (unsorted) array
-
-        // extracting crashes the sorted array
-
-        val crashes = new ArrayBuffer[Crash]()
-
-        var crash_time = -1 // time of the crash with a fake initializer
-        var crash_stat = -1 // station of the crash with a fake initializer
-        var crash_engines = new ArrayBuffer[Int]() // participants of the crash
-
-        for (ar<-arrivals) {
-            if ( ar.time == crash_time && ar.station == crash_stat )
-              // engines arrive at to ctash_stat at the same crash_time
-              crash_engines += ar.engine // the new participant
-            else {
-                if ( crash_engines.length > 1 ) {
-                    // a new crash is found
-                    crashes += new Crash(crash_stat, crash_time, crash_engines)
-                    crash_engines = new ArrayBuffer[Int]()
-                }
-                else
-                  crash_engines.clear() // avoiding creation a new array object for
-                                        // the performance reason
-
-                crash_engines += ar.engine // the first participant of the
-                                           // (possible) next crash
-                crash_time = ar.time       // time of the next crash
-                crash_stat = ar.station    // station of the next crash
-            }
-        }
-
-        if ( crash_engines.length > 1 )
-          // the last crash is detected
-          crashes += new Crash(crash_stat, crash_time, crash_engines)
-
-        crashes
+object error {
+    // this object provides abnormal termination with reporting a message
+    def report(msg: String) = {
+        throw configException("Error: " + msg)
     }
 }
 
-object CrashDetector {
-  // load railway network from a XML file
-  def loadNet(path: String) : RailNet = {
-
-      // root xml node like <rail_net StatNum="3" EngineNum="2">
-      val xml = XML.loadFile(path)
-
-      if ( xml.label != "rail_net" )
-          static_error.report("The root node of configuration must be <rail_net ...>")
-
-      // Number of stations
-      val StatNum = xml.attribute("StatNum").get(0).text.toInt
-      // Number of engines
-      val EngineNum = xml.attribute("EngineNum").get(0).text.toInt
-
-      // network object
-      val rn = new RailNet(StatNum, EngineNum)
-      rn.loadFromXML(xml) // load from xml object
-      rn
-  }
-  def main(args:Array[String]) : Unit = {
-    try {
-      println("loading network definition " + args(0) + " ...")
-      val rn = loadNet(args(0))
-      println("OK")
-      println("Analyzing for crashes ...")
-      val crashes = rn.findCrash
-      println(crashes.length + " crashes detected")
-
-      // printing detected crashes
-      var ci = 1
-      for (cr <- crashes) {
-        println("Crash " + ci); ci += 1
-        print("time: " + cr.time + " station: " + cr.station + " engines: ")
-        for (ei <- 0 to cr.engines.length - 2)
-          print(cr.engines(ei) + ", ")
-        println(cr.engines.last) // the last elem with no comma
-        println("") // skip one line
-      }
-    }
-    catch {
-      case configException(text) => println(text)
-      case nse:NoSuchElementException=> println("Error: A XML node doesn't have a required attribute")
-    }
-  }
-}

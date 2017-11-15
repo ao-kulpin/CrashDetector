@@ -1,4 +1,4 @@
-<rail_net StatNum="10" EngineNum="10">
+<rail_net StatNumber="10" EngineNumber="10">
 	<branch From="0" To="1" Length="1"/>
 	<branch From="1" To="2" Length="2"/>
 	<branch From="2" To="3" Length="3"/>

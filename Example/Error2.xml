@@ -1,4 +1,4 @@
-<rail_net StatNumber="4" EngineNumber="2">
+<rail_net StatNumber="4" EngineNumber="3">
 
 	<branch From="0" To="1" Length="1"/>
 	<branch From="1" To="2" Length="1"/>
@@ -6,7 +6,7 @@
 	<branch From="0" To="3" Length="2"/>
 	<branch From="3" To="1" Length="2"/>
 
-	<route Engine ="0">
+	<route Engine ="2">
 		<track Stat="2"/>
 		<track Stat="0"/>
 		<track Stat="1"/>
@@ -57,7 +57,7 @@
 
 
 	</route>
-	<route Engine ="1">
+	<route Engine ="0">
 		<track Stat="0"/>
 		<track Stat="3"/>
 		<track Stat="1"/>
