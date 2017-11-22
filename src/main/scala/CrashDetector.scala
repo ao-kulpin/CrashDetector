@@ -29,10 +29,10 @@ object RailNet {
             if be.label == "branch"
           ) yield {
               val from_att = XmlConfig.getIntAttrib(be, "From",
-                                (f) => f >= 0 && f < statNumber)
+                                f => f >= 0 && f < statNumber)
               val to_att = XmlConfig.getIntAttrib(be, "To",
                                 (t) => t >= 0 && t < statNumber && t != from_att)
-              val length_att = XmlConfig.getIntAttrib(be, "Length", (l) => l > 0)
+              val length_att = XmlConfig.getIntAttrib(be, "Length", l => l > 0)
 
             (NormBranch(from_att min to_att, from_att max to_att), length_att)
           }).toList
@@ -91,14 +91,14 @@ object Routes {
           if re.label == "route"
         ) yield {
             val engine_att = XmlConfig.getIntAttrib(re, "Engine",
-                                      (e) => e >= 0 && e < getEngineNumber)
+                                      e => e >= 0 && e < getEngineNumber)
             // load <track> nones for the given engine
             val statList :List[Int] = (for (
                 te <- re.child
                 if te.label == "track"
             ) yield {
               val stat_att = XmlConfig.getIntAttrib(te, "Stat",
-                                  (s) => s >= 0 && s < RailNet.getStatNumber)
+                                  s => s >= 0 && s < RailNet.getStatNumber)
               stat_att
             }).toList
 
@@ -108,7 +108,7 @@ object Routes {
         checkErrors(routeList) // can be ignored for correct understanding
 
         // produce the map of routs
-        routeTab = routeList.map((r)=>(r.eng, r)).toMap
+        routeTab = routeList.map(r=>(r.eng, r)).toMap
 
         assert(isLoaded)
       }
@@ -207,7 +207,7 @@ object CrashDetector {
         val crashes = findCrash
 
         // sorting detected crashes by time
-        val sort_crashes = crashes.sortWith((x, y) => x.time < y.time)
+        val sort_crashes = crashes.sortWith(_.time < _.time)
 
         println(sort_crashes.length + " crashes detected")
 
@@ -271,7 +271,7 @@ object CrashDetector {
         }
 
         // concatenate lists of all engines
-        List.range(0, Routes.getEngineNumber).flatMap((ei)=>collectEnginePass(ei))
+        List.range(0, Routes.getEngineNumber).flatMap(collectEnginePass(_))
     }
 
     private def findCrash:List[Crash] = {
