@@ -11,11 +11,9 @@ object XmlUtils {
                    isValid: Int => Boolean = _ => true // validator of the expected value
                   ): Int = {
     val ov = elm.attribute(attrName)
-    if (ov.isEmpty)
-      error.report("A xml node doesn't have attribute " + attrName)
+    error.require(ov.nonEmpty,s"A xml node doesn't have attribute $attrName")
     val iv = ov.get.text.toInt
-    if (!isValid(iv))
-      error.report("An invalid value of xml attribute " + attrName + "=" + iv)
+    error.require( isValid(iv), s"An invalid value of xml attribute $attrName = $iv")
     iv
   }
 
@@ -79,14 +77,14 @@ object RailNet {
   private def checkErrors(brl: List[(NormBranch, Int)]): Unit = {
     // detect errors in definitions of branches
 
-    if (brl.isEmpty)
-      error.report("The configuration doesn't have any <branch> nodes")
+    error.require(brl.nonEmpty, "The configuration doesn't have any <branch> nodes")
 
     // search for ambiguously defined branches
     for ((b1, l1) <- brl; (b2, l2) <- brl)
-      if (b1 == b2 && l1 != l2)
-        error.report("The Length of branch " + b1.st1 + "<->" + b1.st2 +
-          " is ambiguously defined: " + l1 + "/" + l2)
+      error.require (
+        !(b1 == b2 && l1 != l2),
+        s"The Length of branch ${b1.st1} <-> ${b1.st2}  is ambiguously defined: $l1 / $l2"
+      )
   }
 }
 
@@ -151,7 +149,7 @@ object Routes {
   private case class EngRoute( // the route (list of stations) of an engine
                                eng: Int, // engine
                                stl: List[Int] // list of stations
-                             ) {}
+                             )
 
   private var engineNumber = -1 // Number of engines
 
@@ -164,26 +162,24 @@ object Routes {
     // detect errors in definitions of routes
 
     @tailrec
-    def detectDuplicate(erl: List[EngRoute]): Unit = {
+    def detectDuplicate(erl: List[EngRoute]): Unit =
       if (erl.nonEmpty) {
-        if (erl.tail.exists(_.eng == erl.head.eng))
-          error.report(error.report("Duplicate route definition for Engine " + erl.head.eng))
+        error.require(!erl.tail.exists(_.eng == erl.head.eng),
+          s"Duplicate route definition for Engine ${erl.head.eng}")
         detectDuplicate(erl.tail)
       }
-    }
+
 
     def checkBranchExist(stl: List[Int]): Unit = {
       for ((st1, st2) <- stl zip stl.tail)
-        if (RailNet.branchLength(st1, st2) <= 0)
-          error.report("Branch " + st1 + "->" + st2 + " doesn't exist")
+        error.require(RailNet.branchLength(st1, st2) > 0, s"Branch $st1 -> $st2 doesn't exist")
     }
 
     detectDuplicate(erl)
 
     // check if a route for every engine is defined
     for (ei <- List.range(0, engineCount))
-      if (!erl.exists(_.eng == ei))
-        error.report(error.report("Route for engine " + ei + " is not defined"))
+      error.require(erl.exists(_.eng == ei), s"Route for engine $ei + is not defined")
 
     // check if every branch of an engine's route exists
     for (er <- erl) checkBranchExist(er.stl)
@@ -312,7 +308,7 @@ object CrashDetector {
 case class configException(text: String) extends Exception(text)
 
 object error {
-  def report(msg: String): Nothing = throw configException(s"Error: $msg")
+  private def report(msg: String): Nothing = throw configException(s"Error: $msg")
   def require(should : Boolean, msg : ⇒ String) : Unit =
     if (!should) report(msg)
 }
