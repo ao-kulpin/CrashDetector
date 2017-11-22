@@ -2,11 +2,30 @@ import scala.annotation.tailrec
 import scala.collection.immutable._
 import scala.xml._
 
+object XmlUtils {
+  /**
+    * extract XML attribute and convert its value to Int type
+    */
+  @throws[configException]
+  def getIntAttrib(elm: xml.Node, attrName: String,
+                   isValid: Int => Boolean = _ => true // validator of the expected value
+                  ): Int = {
+    val ov = elm.attribute(attrName)
+    if (ov.isEmpty)
+      error.report("A xml node doesn't have attribute " + attrName)
+    val iv = ov.get.text.toInt
+    if (!isValid(iv))
+      error.report("An invalid value of xml attribute " + attrName + "=" + iv)
+    iv
+  }
+
+}
 
 /**
   * Encapsulates the railway network definition
   */
 object RailNet {
+  import XmlUtils.getIntAttrib
 
   def isLoaded: Boolean = branchTab.nonEmpty
 
@@ -24,18 +43,18 @@ object RailNet {
   def loadFromXml(root: xml.Elem): Unit = {
     assert(!isLoaded)
 
-    statNumber = XmlConfig.getIntAttrib(root, "StatNumber", _ > 1)
+    statNumber = getIntAttrib(root, "StatNumber", _ > 1)
 
     // load <branch> nodes
     val branchList: List[(NormBranch, Int)] = (for (
       be <- root.child
       if be.label == "branch"
     ) yield {
-      val from_att = XmlConfig.getIntAttrib(be, "From",
+      val from_att = getIntAttrib(be, "From",
         f => f >= 0 && f < statNumber)
-      val to_att = XmlConfig.getIntAttrib(be, "To",
+      val to_att = getIntAttrib(be, "To",
         (t) => t >= 0 && t < statNumber && t != from_att)
-      val length_att = XmlConfig.getIntAttrib(be, "Length", l => l > 0)
+      val length_att = getIntAttrib(be, "Length", l => l > 0)
 
       (NormBranch(from_att min to_att, from_att max to_att), length_att)
     }).toList
@@ -75,6 +94,7 @@ object RailNet {
   * the object encapsulates definitions of engine's routes
   */
 object Routes {
+  import XmlUtils.getIntAttrib
 
   def engineCount: Int = engineNumber
 
@@ -96,7 +116,7 @@ object Routes {
     assert(RailNet.isLoaded) // RailNet must be loaded first
     assert(!isLoaded)
 
-    engineNumber = XmlConfig.getIntAttrib(root, "EngineNumber", _ > 0)
+    engineNumber = getIntAttrib(root, "EngineNumber", _ > 0)
 
     /**
       * load route nodes
@@ -105,14 +125,14 @@ object Routes {
       re <- root.child
       if re.label == "route"
     ) yield {
-      val engine_att = XmlConfig.getIntAttrib(re, "Engine",
+      val engine_att = getIntAttrib(re, "Engine",
         e => e >= 0 && e < engineCount)
       // load <track> nones for the given engine
       val statList: List[Int] = (for (
         te <- re.child
         if te.label == "track"
       ) yield {
-        val stat_att = XmlConfig.getIntAttrib(te, "Stat",
+        val stat_att = getIntAttrib(te, "Stat",
           s => s >= 0 && s < RailNet.stationCount)
         stat_att
       }).toList
@@ -170,40 +190,6 @@ object Routes {
   }
 }
 
-object XmlConfig {
-  // the object encapsulates XML representation of configuration
-
-  def isLoaded: Boolean = rootElem.isDefined // is the object loaded
-  def getRoot: Elem = {
-    assert(isLoaded)
-    rootElem.get
-  }
-
-  def loadFromFile(path: String): Unit = {
-    // load XML definition from file
-
-    rootElem = Some(XML.loadFile(path))
-
-    // check the root element
-    if (isLoaded && rootElem.get.label != "rail_net")
-      error.report("The root node of configuration must be <rail_net ...>")
-  }
-
-  def getIntAttrib(elm: xml.Node, attrName: String,
-                   isValid: Int => Boolean = _ => true // validator of the expected value
-                  ): Int = {
-    // extract XML attribute and convert its value to Int type
-    val ov = elm.attribute(attrName)
-    if (ov.isEmpty)
-      error.report("A xml node doesn't have attribute " + attrName)
-    val iv = ov.get.text.toInt
-    if (!isValid(iv))
-      error.report("An invalid value of xml attribute " + attrName + "=" + iv)
-    iv
-  }
-
-  private var rootElem: Option[xml.Elem] = None
-}
 
 /**
   * Drives other objects and provides the primary functionality
@@ -211,15 +197,15 @@ object XmlConfig {
 object CrashDetector {
   def main(args: Array[String]): Unit = {
     try {
-      println("loading network definition " + args(0) + " ...")
+      println(s"loading network definition ${args(0)}  ...")
 
-      XmlConfig.loadFromFile(args(0))
-      assert(XmlConfig.isLoaded)
+      val xml = XML.loadFile(args(0))
+      error.require(xml.label == "rail_net", "The root node of configuration must be <rail_net ...>")
 
-      RailNet.loadFromXml(XmlConfig.getRoot)
+      RailNet.loadFromXml(xml)
       assert(RailNet.isLoaded)
 
-      Routes.loadFromXml(XmlConfig.getRoot)
+      Routes.loadFromXml(xml)
       assert(Routes.isLoaded)
 
       println("OK")
@@ -254,11 +240,19 @@ object CrashDetector {
       (en1 max en2) == (cr.en1 max cr.en2)
   }
 
-  private case class BranchPass( // passage between stations
-                                 eng: Int, // this engine
-                                 st1: Int, st2: Int, // passes from st1 to st2
-                                 t1: Int, // time of start at st1
-                                 t2: Int // time of finish at st2
+  /**
+    * Passage between stations
+    * @param eng this engine
+    * @param st1 station we started from
+    * @param st2 stations we went to
+    * @param t1  time of start at t1
+    * @param t2  time of finish at st2
+    */
+  private case class BranchPass(
+                                 eng: Int,
+                                 st1: Int, st2: Int,
+                                 t1: Int,
+                                 t2: Int
                                ) {
     def isCrashed(bp: BranchPass): Boolean = eng != bp.eng && st1 == bp.st2 &&
       // detect crashing events
@@ -315,13 +309,11 @@ object CrashDetector {
   }
 }
 
-/** class for error objects
-  *
-  * @param text exception description
-  */
 case class configException(text: String) extends Exception(text)
 
 object error {
   def report(msg: String): Nothing = throw configException(s"Error: $msg")
+  def require(should : Boolean, msg : ⇒ String) : Unit =
+    if (!should) report(msg)
 }
 
