@@ -228,12 +228,20 @@ object CrashDetector {
                             en1: Int, en2: Int, // engines take part
                             time: Double // at that time
                           )  {
-    def isSame(cr: Crash): Boolean = time == cr.time &&
+    def isSame(that: Crash): Boolean = CrashOrdering.compare(this, that) == 0
       // detecting identical crashes
-      (st1 min st2) == (cr.st1 min cr.st2) &&
-      (st1 max st2) == (cr.st1 max cr.st2) &&
-      (en1 min en2) == (cr.en1 min cr.en2) &&
-      (en1 max en2) == (cr.en1 max cr.en2)
+  }
+  private object CrashOrdering extends Ordering[Crash] {
+    override def compare(a: Crash, b: Crash) = {
+      List((a.st1 min a.st2) - (b.st1 min b.st2),
+        (a.st1 max a.st2) - (b.st1 max b.st2),
+        (a.en1 min a.en2) - (b.en1 min b.en2),
+        (a.en1 max a.en2) - (b.en1 max b.en2),
+        if (a.time < b.time) -1 else if (a.time > b.time) 1 else 0)
+          .foldLeft(0)((res, elem) =>
+              if(res == 0) elem else res)
+    }
+
   }
 
   /**
@@ -241,7 +249,7 @@ object CrashDetector {
     * @param eng this engine
     * @param st1 station we started from
     * @param st2 stations we went to
-    * @param t1  time of start at t1
+    * @param t1  time of start at st1
     * @param t2  time of finish at st2
     */
   private case class BranchPass(
@@ -287,10 +295,8 @@ object CrashDetector {
   }
 
   private def findCrashes: List[Crash] = {
-    @tailrec
-    def removeDuplicates(crl: Iterable[Crash], res: List[Crash] = Nil ): List[Crash] =
-        if (crl.isEmpty) res
-        else removeDuplicates(crl.tail.filter(!crl.head.isSame(_)), res :+ crl.head)
+    def removeDuplicates(crl: Iterable[Crash]): List[Crash] =
+      (new TreeSet[Crash]()(CrashOrdering) ++ crl).toList
 
     val bpl = collectPass // all BranchPasses
 
