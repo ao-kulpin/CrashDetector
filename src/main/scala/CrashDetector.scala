@@ -227,7 +227,7 @@ object CrashDetector {
                             st1: Int, st2: Int, // happens between these stations
                             en1: Int, en2: Int, // engines take part
                             time: Double // at that time
-                          ) {
+                          )  {
     def isSame(cr: Crash): Boolean = time == cr.time &&
       // detecting identical crashes
       (st1 min st2) == (cr.st1 min cr.st2) &&
@@ -287,10 +287,10 @@ object CrashDetector {
   }
 
   private def findCrashes: List[Crash] = {
-    def removeDuplicates(crl: List[Crash]): List[Crash] = {
-      if (crl.isEmpty) crl else crl.head ::
-        removeDuplicates(crl.tail.filter(!crl.head.isSame(_)))
-    }
+    @tailrec
+    def removeDuplicates(crl: Iterable[Crash], res: List[Crash] = Nil ): List[Crash] =
+        if (crl.isEmpty) res
+        else removeDuplicates(crl.tail.filter(!crl.head.isSame(_)), res :+ crl.head)
 
     val bpl = collectPass // all BranchPasses
 
